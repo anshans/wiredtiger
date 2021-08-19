@@ -817,10 +817,12 @@ __hs_delete_reinsert_from_pos(WT_SESSION_IMPL *session, WT_CURSOR *hs_cursor, ui
     WT_CURSOR_BTREE *hs_cbt;
     WT_DECL_RET;
     WT_ITEM hs_key, hs_value;
-    WT_TIME_WINDOW tw, hs_insert_tw;
+    WT_TIME_WINDOW tw, *twp, hs_insert_tw;
     wt_timestamp_t hs_ts;
     uint64_t hs_counter, hs_upd_type;
     uint32_t hs_btree_id;
+    char time_string[WT_TIME_STRING_SIZE];
+    WT_DECL_ITEM(tmp1);
 #ifdef HAVE_DIAGNOSTIC
     int cmp;
 #endif
@@ -854,6 +856,7 @@ __hs_delete_reinsert_from_pos(WT_SESSION_IMPL *session, WT_CURSOR *hs_cursor, ui
     if (ret == WT_NOTFOUND)
         return (0);
     WT_ERR(ret);
+
 
     /*
      * The goal of this function is to move out-of-order content to maintain ordering in the
@@ -953,12 +956,19 @@ __hs_delete_reinsert_from_pos(WT_SESSION_IMPL *session, WT_CURSOR *hs_cursor, ui
             hs_insert_cursor->set_value(hs_insert_cursor, &hs_insert_tw,
               hs_insert_tw.durable_stop_ts, hs_insert_tw.durable_start_ts, (uint64_t)hs_upd_type,
               &hs_value);
+
             WT_ERR(hs_insert_cursor->insert(hs_insert_cursor));
             ++(*counter);
             WT_STAT_CONN_INCR(session, cache_hs_order_reinsert);
             WT_STAT_DATA_INCR(session, cache_hs_order_reinsert);
         }
-
+        __wt_hs_upd_time_window(hs_cursor, &twp);
+        WT_ASSERT(session, __wt_txn_tw_stop_visible_all(session, twp));
+        WT_ERR(__wt_scr_alloc(session, 0, &tmp1));
+        printf("Delete hs record with time window %s %s %s %d\n",
+          __wt_time_window_to_string(twp, time_string),
+          __wt_key_string(session, hs_key.data, hs_key.size, "q", tmp1), session->dhandle->name,(int)__wt_gen(session, WT_GEN_CHECKPOINT));
+        __wt_scr_free(session, &tmp1);
         /* Delete the out-of-order entry. */
         WT_ERR(hs_cursor->remove(hs_cursor));
         WT_STAT_CONN_INCR(session, cache_hs_order_remove);
