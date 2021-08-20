@@ -600,7 +600,7 @@ __wt_sync_file(WT_SESSION_IMPL *session, WT_CACHE_OP syncop)
              * checkpoint marked it clean and we can't skip future checkpoints until this page is
              * written.
              */
-            if (__sync_checkpoint_can_skip(session, walk)) {
+            if (false) {
                 __wt_tree_modify_set(session);
                 continue;
             }
