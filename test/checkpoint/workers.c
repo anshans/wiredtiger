@@ -329,7 +329,6 @@ real_worker(void)
         }
         keyno = __wt_random(&rnd) % g.nkeys + 1;
         if (g.use_timestamps && g.mixed_mode_deletes && new_txn && __wt_random(&rnd) % 72 == 0) {
-            printf("Performing mixed mode delete\n");
             new_txn = false;
             for (j = 0; ret == 0 && j < g.ntables; j++) {
                 ret = worker_mm_delete(cursors[j], keyno);
