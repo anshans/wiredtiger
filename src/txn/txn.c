@@ -1038,6 +1038,7 @@ __txn_fixup_prepared_update(
         hs_value.size = fix_upd->size;
         hs_cursor->set_value(hs_cursor, &tw, tw.durable_stop_ts, tw.durable_start_ts,
           (uint64_t)WT_UPDATE_STANDARD, &hs_value);
+        WT_ASSERT(session, ret != WT_ROLLBACK);
         WT_ERR(hs_cursor->update(hs_cursor));
     } else
         WT_ERR(hs_cursor->remove(hs_cursor));
@@ -1243,6 +1244,7 @@ __txn_resolve_prepared_op(WT_SESSION_IMPL *session, WT_TXN_OP *op, bool commit, 
                 __wt_row_modify(cbt, &cbt->iface.key, NULL, tombstone, WT_UPDATE_INVALID, false) :
                 __wt_col_modify(cbt, cbt->recno, NULL, tombstone, WT_UPDATE_INVALID, false));
 #endif
+            WT_ASSERT(session, ret != WT_ROLLBACK);
             WT_ERR(ret);
             tombstone = NULL;
         } else if (ret == 0)

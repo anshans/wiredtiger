@@ -1316,6 +1316,8 @@ __wt_txn_modify_check(
     txn = session->txn;
     txn_global = &S2C(session)->txn_global;
 
+    WT_ASSERT(session, !F_ISSET(txn, WT_TXN_PREPARE));
+
     /* Don't check if transaction isolation is not snapshot or the table is metadata. */
     if (txn->isolation != WT_ISO_SNAPSHOT || WT_IS_METADATA(cbt->dhandle))
         return (0);
@@ -1355,6 +1357,7 @@ __wt_txn_modify_check(
 
     if (rollback) {
         WT_STAT_CONN_DATA_INCR(session, txn_update_conflict);
+        WT_ASSERT(session, !WT_IS_HS(session->dhandle));
         ret = __wt_txn_rollback_required(session, "conflict between concurrent operations");
     }
 
