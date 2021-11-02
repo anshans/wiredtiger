@@ -1,21 +1,22 @@
 #!/bin/bash
 
+CMAKE_BIN="${CMAKE:-cmake}"
+
 cd $(git rev-parse --show-toplevel)
 echo `pwd`
-sh build_posix/reconf
 
 curdir=`pwd`
 
-flags="CFLAGS=\"-Werror -Wall -Wextra -Waddress -Waggregate-return -Wbad-function-cast -Wcast-align -Wdeclaration-after-statement -Wformat-security -Wformat-nonliteral -Wformat=2 -Wmissing-declarations -Wmissing-field-initializers -Wmissing-prototypes -Wnested-externs -Wno-unused-parameter -Wpointer-arith -Wredundant-decls -Wshadow -Wundef -Wunused -Wwrite-strings -O -fno-strict-aliasing -Wuninitialized\"
-CC=clang CFLAGS=\"-Wall -Werror -Qunused-arguments -Wno-self-assign -Wno-parentheses-equality -Wno-array-bounds\""
+flags="-DCMAKE_TOOLCHAIN_FILE=$curdir/cmake/toolchains/gcc.cmake -DCMAKE_C_FLAGS=\"-Werror -Wall -Wextra -Waddress -Waggregate-return -Wbad-function-cast -Wcast-align -Wformat-security -Wformat-nonliteral -Wformat=2 -Wmissing-field-initializers -Wnested-externs -Wno-unused-parameter -Wpointer-arith -Wredundant-decls  -Wundef -Wunused -Wwrite-strings -O -fno-strict-aliasing -Wuninitialized -Wno-discarded-qualifiers -Wno-incompatible-pointer-types -Wno-int-conversion -Wno-sign-conversion -Wno-pointer-sign -Wno-unused-variable\"
+-DCMAKE_TOOLCHAIN_FILE=$curdir/cmake/toolchains/clang.cmake -DCMAKE_C_FLAGS=\"-Wall -Werror -Qunused-arguments -Wno-self-assign -Wno-parentheses-equality -Wno-array-bounds\""
 
-options="--enable-diagnostic
---disable-shared
---disable-static --enable-python
---enable-snappy --enable-zlib --enable-lz4
---with-builtins=lz4,snappy,zlib
---enable-diagnostic --enable-python
---enable-strict --disable-shared"
+options="-DHAVE_DIAGNOSTIC=1
+-DENABLE_SHARED=0 -DENABLE_STATIC=1
+-DENABLE_STATIC=0 -DENABLE_PYTHON=1
+-DENABLE_SNAPPY=1 -DENABLE_ZLIB=1 -DENABLE_LZ4=1
+-DHAVE_BUILTIN_EXTENSION_LZ4=1 -DHAVE_BUILTIN_EXTENSION_SNAPPY=1 -DHAVE_BUILTIN_EXTENSION_ZLIB=1
+-DHAVE_DIAGNOSTIC=1-DENABLE_PYTHON=1
+-DENABLE_STRICT=1 -DENABLE_STATIC=1 -DENABLE_SHARED=0"
 
 saved_IFS=$IFS
 cr_IFS="
@@ -23,31 +24,20 @@ cr_IFS="
 
 # This function may alter the current directory on failure
 BuildTest() {
-        extra_config=--enable-silent-rules
         echo "Building: $1, $2"
         rm -rf ./build || return 1
         mkdir build || return 1
         cd ./build
-        eval ../configure $extra_config "$1" "$2" \
-                 --prefix="$insdir" || return 1
-        eval make "$3" || return 1
-        make -C examples/c check VERBOSE=1 > /dev/null || return 1
-        case "$2" in
-                # Skip the install step with Python.  Even with --prefix, the
-                # install tries to write to /usr/lib64/python2.7/site-packages .
-                *enable-python* )  doinstall=false;;
-                # Non-shared doesn't yet work: library is not found at link step (??)
-                *disable-shared* ) doinstall=false;;
-                * )                doinstall=true;;
-        esac
-        if $doinstall; then
-                eval make install || return 1
-                cflags=`pkg-config wiredtiger --cflags --libs`
-                [ "$1"  == "CC=clang" ] && compiler="clang" || compiler="cc"
-                echo $compiler -o ./smoke ../examples/c/ex_smoke.c $cflags
-                $compiler -o ./smoke ../examples/c/ex_smoke.c  $cflags|| return 1
-                LD_LIBRARY_PATH=$insdir/lib ./smoke || return 1
-        fi
+        eval $CMAKE_BIN $extra_config "$1" "$2" \
+                 -DCMAKE_INSTALL_PREFIX="$insdir" -G Ninja ../. || return 1
+        eval ninja || return 1
+        ninja examples/c/all > /dev/null || return 1
+        eval ninja install || return 1
+        cflags=`pkg-config wiredtiger --cflags --libs`
+        [ "$1"  == *"clang.cmake"* ] && compiler="clang" || compiler="cc"
+        echo $compiler -o ./smoke ../examples/c/ex_smoke.c $cflags
+        $compiler -o ./smoke ../examples/c/ex_smoke.c  $cflags|| return 1
+        LD_LIBRARY_PATH=$insdir/lib ./smoke || return 1
         return 0
 }
 
