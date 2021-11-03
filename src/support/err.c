@@ -31,7 +31,7 @@ __err_unpack_json_str(u_char *dest, size_t dest_len, char *src)
         }
     }
 
-    if (dest != NULL)
+    if (q != NULL)
         *q = '\0';
 
     return (nchars);
