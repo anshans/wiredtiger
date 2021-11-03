@@ -6,7 +6,63 @@
  * See the file LICENSE for redistribution information.
  */
 
+#include "../utilities/util_dump.h"
 #include "wt_internal.h"
+
+// static int dup_json_string(WT_SESSION_IMPL *, const char *, char **);
+static size_t __err_unpack_json_str(u_char *, size_t, char *);
+
+static size_t __err_unpack_json_str(u_char *dest, size_t dest_len, char *src) {
+    size_t nchars;
+    char *p, *q;
+
+    nchars = 0;
+    q = dest;
+
+    for (p = src; *p; p++, nchars++) {
+        nchars += __wt_json_unpack_char((u_char)*p, (u_char *)q, dest_len, false);
+        if(dest != NULL) {
+            dest_len -= nchars;
+            q += nchars;
+        }
+    }
+
+    if(dest != NULL)
+        *q = '\0';
+
+    return (nchars);
+}
+
+/*
+ * dup_json_string --
+ *     Like strdup, but escape any characters that are special for JSON. The result will be embedded
+ *     in a JSON string.
+ */
+// TODO - Have a look how __logrec_make_json_str does the job
+// static int
+// dup_json_string(WT_SESSION_IMPL *session, const char *str, char **result)
+// {
+//     size_t left, nchars;
+//     char *q;
+//     const char *p;
+
+//     nchars = 0;
+//     for (p = str; *p; p++, nchars++)
+//         nchars += __wt_json_unpack_char((u_char)*p, NULL, 0, false);
+    
+//     WT_RET(__wt_malloc(session, nchars + 1, &q));
+
+//     *result = q;
+//     left = nchars;
+//     for (p = str; *p; p++, nchars++) {
+//         nchars = __wt_json_unpack_char((u_char)*p, (u_char *)q, left, false);
+//         left -= nchars;
+//         q += nchars;
+//     }
+//     *q = '\0';
+
+//     return (0);
+// }
 
 /*
  * __handle_error_default --
@@ -162,51 +218,114 @@ __wt_event_handler_set(WT_SESSION_IMPL *session, WT_EVENT_HANDLER *handler)
     } while (0)
 
 /*
- * __eventv --
- *     Report a message to an event handler.
+ * __gen_eventv_json_str --
+ *     Generate a JSON style string.
  */
 static int
-__eventv(WT_SESSION_IMPL *session, bool msg_event, int error, const char *func, int line,
-  const char *fmt, va_list ap) WT_GCC_FUNC_ATTRIBUTE((cold))
+__gen_eventv_json_str(WT_SESSION_IMPL *session, char *buffer, int error, size_t *size, const char *func,
+  int line, const char *fmt, va_list ap) WT_GCC_FUNC_ATTRIBUTE((cold))
 {
-    struct timespec ts;
     WT_DECL_RET;
-    WT_EVENT_HANDLER *handler;
-    WT_SESSION *wt_session;
-    size_t len, remain;
+    struct timespec ts;
     char *p, tid[128];
     const char *err, *prefix;
+    size_t remain, remain_msg, unpacked_msg_len;
+
+    char msg_str[4 * 1024];
+    u_char *unpacked_json_str;
+    char *p_msg;
+
+    p_msg = msg_str;
+    remain_msg = sizeof(msg_str);
+    unpacked_msg_len = 0;
+
+    p = buffer;
+    remain = *size;
 
     /*
-     * We're using a stack buffer because we want error messages no matter
-     * what, and allocating a WT_ITEM, or the memory it needs, might fail.
-     *
-     * !!!
-     * SECURITY:
-     * Buffer placed at the end of the stack in case snprintf overflows.
+     * We have several attributes for the event handler message: a timestamp and the
+     * process and thread ids, the database error prefix, the data-source's name, and the session's
+     * name. Write them as separates JSON attributes.
      */
-    char s[4 * 1024];
+
+    __wt_epoch(session, &ts);
+    WT_ERR(__wt_thread_str(tid, sizeof(tid)));
+    WT_ERROR_APPEND(p, remain, "{");
+    WT_ERROR_APPEND(p, remain, "\"ts_sec\":%" PRIuMAX ",", (uintmax_t)ts.tv_sec);
+    WT_ERROR_APPEND(p, remain, "\"ts_usec\":%" PRIuMAX ",", (uintmax_t)ts.tv_nsec / WT_THOUSAND);
+    WT_ERROR_APPEND(p, remain, "\"thread\":\"%s\",", tid);
+
+    if ((prefix = S2C(session)->error_prefix) != NULL)
+        WT_ERROR_APPEND(p, remain, "\"session_err_prefix\":\"%s\",", prefix);
+    prefix = session->dhandle == NULL ? NULL : session->dhandle->name;
+    if (prefix != NULL)
+        WT_ERROR_APPEND(p, remain, "\"session_dhandle_name\":\"%s\",", prefix);
+    if ((prefix = session->name) != NULL)
+        WT_ERROR_APPEND(p, remain, "\"session_name\":\"%s\",", prefix);
+
+    // TODO
+    // WT_ERROR_APPEND(p, remain, "\"category\":\"%s\",", category);
+    // WT_ERROR_APPEND(p, remain, "\"category_id\":%d,", category_id);
+    // WT_ERROR_APPEND(p, remain, "\"verbose_level\":\"%s\",", verbose_level);
+    // WT_ERROR_APPEND(p, remain, "\"verbose_level_id\":%d,", verbose_level_id);
+
+    if (error != 0) {
+        err = __wt_strerror(session, error, NULL, 0);
+        WT_ERROR_APPEND(p, remain, "\"error_str\":\"%s\",", err);
+        WT_ERROR_APPEND(p, remain, "\"error_code\":\"%d\",", error);
+    }
+
+    /* Escape any characters that are special for JSON. */
+    WT_ERROR_APPEND_AP(p_msg, remain_msg, fmt, ap);
+
+    unpacked_msg_len = __err_unpack_json_str(NULL, 0, msg_str);
+    printf("msg_str is %s\n", msg_str);
+    printf("unpacked_msg_len is %zu\n", unpacked_msg_len);
+    WT_ERR(__wt_malloc(session, unpacked_msg_len + 1, &unpacked_json_str));
+    unpacked_msg_len = __err_unpack_json_str(unpacked_json_str, unpacked_msg_len, msg_str);
+    printf("unpacked_msg_len is %zu\n", unpacked_msg_len);
+    printf("unpacked_json_str is %s\n", unpacked_json_str);
+    // unpacked_json_str[unpacked_msg_len - 1] = '\0';
+
+    // WT_ERR(dup_json_string(session, msg_str, &unpacked_json_str));
+
+    WT_ERROR_APPEND(p, remain, "\"msg\":\"");
+    if (func != NULL)
+        WT_ERROR_APPEND(p, remain, "%s:%d:", func, line);
+    WT_ERROR_APPEND(p, remain, "%s", unpacked_json_str);
+    WT_ERROR_APPEND(p, remain, "\"");
+
+    WT_ERROR_APPEND(p, remain, "}");
+
+    *size = remain;
+
+err:
+    return (ret);
+}
+
+/*
+ * __gen_eventv_flat_str --
+ *     Generate a flat style string.
+ */
+static int
+__gen_eventv_flat_str(WT_SESSION_IMPL *session, char *s, int error, size_t *size, const char *func,
+  int line, const char *fmt, va_list ap) WT_GCC_FUNC_ATTRIBUTE((cold))
+{
+    WT_DECL_RET;
+    struct timespec ts;
+    char *p, tid[128];
+    const char *err, *prefix;
+    size_t len, remain;
+
     p = s;
-    remain = sizeof(s);
-
-    /*
-     * !!!
-     * This function MUST handle a NULL WT_SESSION_IMPL handle.
-     *
-     * Without a session, we don't have event handlers or prefixes for the
-     * error message.  Write the error to stderr and call it a day.  (It's
-     * almost impossible for that to happen given how early we allocate the
-     * first session, but if the allocation of the first session fails, for
-     * example, we can end up here without a session.)
-     */
-    if (session == NULL)
-        goto err;
+    remain = *size;
 
     /*
      * We have several prefixes for the error message: a timestamp and the process and thread ids,
      * the database error prefix, the data-source's name, and the session's name. Write them as a
      * comma-separate list, followed by a colon.
      */
+
     __wt_epoch(session, &ts);
     WT_ERR(__wt_thread_str(tid, sizeof(tid)));
     WT_ERROR_APPEND(p, remain, "[%" PRIuMAX ":%" PRIuMAX "][%s]", (uintmax_t)ts.tv_sec,
@@ -241,6 +360,54 @@ __eventv(WT_SESSION_IMPL *session, bool msg_event, int error, const char *func, 
         if (WT_PTRDIFF(p, s) < len || strcmp(p - len, err) != 0)
             WT_ERROR_APPEND(p, remain, ": %s", err);
     }
+
+    *size = remain;
+
+err:
+    return (ret);
+}
+
+/*
+ * __eventv --
+ *     Report a message to an event handler.
+ */
+static int
+__eventv(WT_SESSION_IMPL *session, bool msg_event, int error, const char *func, int line,
+  const char *fmt, va_list ap) WT_GCC_FUNC_ATTRIBUTE((cold))
+{
+    WT_DECL_RET;
+    WT_EVENT_HANDLER *handler;
+    WT_SESSION *wt_session;
+    size_t remain;
+
+    /*
+     * We're using a stack buffer because we want error messages no matter
+     * what, and allocating a WT_ITEM, or the memory it needs, might fail.
+     *
+     * !!!
+     * SECURITY:
+     * Buffer placed at the end of the stack in case snprintf overflows.
+     */
+    char s[4 * 1024];
+    remain = sizeof(s);
+
+    /*
+     * !!!
+     * This function MUST handle a NULL WT_SESSION_IMPL handle.
+     *
+     * Without a session, we don't have event handlers or prefixes for the
+     * error message.  Write the error to stderr and call it a day.  (It's
+     * almost impossible for that to happen given how early we allocate the
+     * first session, but if the allocation of the first session fails, for
+     * example, we can end up here without a session.)
+     */
+    if (session == NULL)
+        goto err;
+
+    if (0)
+        WT_ERR(__gen_eventv_flat_str(session, s, error, &remain, func, line, fmt, ap));
+    else
+        WT_ERR(__gen_eventv_json_str(session, s, error, &remain, func, line, fmt, ap));
 
     /*
      * If a handler fails, return the error status: if we're in the process of handling an error,
