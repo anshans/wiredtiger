@@ -12,22 +12,26 @@
 // static int dup_json_string(WT_SESSION_IMPL *, const char *, char **);
 static size_t __err_unpack_json_str(u_char *, size_t, char *);
 
-static size_t __err_unpack_json_str(u_char *dest, size_t dest_len, char *src) {
+static size_t
+__err_unpack_json_str(u_char *dest, size_t dest_len, char *src)
+{
     size_t nchars;
     char *p, *q;
+    size_t n;
 
     nchars = 0;
     q = dest;
 
-    for (p = src; *p; p++, nchars++) {
-        nchars += __wt_json_unpack_char((u_char)*p, (u_char *)q, dest_len, false);
-        if(dest != NULL) {
-            dest_len -= nchars;
-            q += nchars;
+    for (p = src; *p; p++) {
+        n = __wt_json_unpack_char((u_char)*p, (u_char *)q, dest_len, false);
+        nchars += n;
+        if (q != NULL) {
+            dest_len -= n;
+            q += n;
         }
     }
 
-    if(dest != NULL)
+    if (dest != NULL)
         *q = '\0';
 
     return (nchars);
@@ -279,12 +283,12 @@ __gen_eventv_json_str(WT_SESSION_IMPL *session, char *buffer, int error, size_t 
     WT_ERROR_APPEND_AP(p_msg, remain_msg, fmt, ap);
 
     unpacked_msg_len = __err_unpack_json_str(NULL, 0, msg_str);
-    printf("msg_str is %s\n", msg_str);
-    printf("unpacked_msg_len is %zu\n", unpacked_msg_len);
+    // printf("msg_str is %s\n", msg_str);
+    // printf("unpacked_msg_len is %zu\n", unpacked_msg_len);
     WT_ERR(__wt_malloc(session, unpacked_msg_len + 1, &unpacked_json_str));
     unpacked_msg_len = __err_unpack_json_str(unpacked_json_str, unpacked_msg_len, msg_str);
-    printf("unpacked_msg_len is %zu\n", unpacked_msg_len);
-    printf("unpacked_json_str is %s\n", unpacked_json_str);
+    // printf("unpacked_msg_len is %zu\n", unpacked_msg_len);
+    // printf("unpacked_json_str is %s\n", unpacked_json_str);
     // unpacked_json_str[unpacked_msg_len - 1] = '\0';
 
     // WT_ERR(dup_json_string(session, msg_str, &unpacked_json_str));
