@@ -2014,6 +2014,10 @@ __wt_verbose_config(WT_SESSION_IMPL *session, const char *cfg[])
 
     conn = S2C(session);
 
+    WT_RET(__wt_config_gets(session, cfg, "event_handler_json", &cval));
+    if (cval.val)
+        conn->event_handler_json = true;
+
     WT_RET(__wt_config_gets(session, cfg, "verbose", &cval));
 
     for (ft = verbtypes; ft->name != NULL; ft++) {
