@@ -62,6 +62,13 @@ typedef enum {
     WT_VERB_NUM_CATEGORIES,
 } WT_VERBOSE_CATEGORY;
 
+/* Declare an array of verbose categories. */
+#define WT_DECL_CATEGORY_STRINGS(categories)               \
+    static const char *categories[] = (const char *[])     \
+    {                                                      \
+        WT_GEN_VERBOSE_CATEGORIES(WT_GEN_VERBOSE_ENUM_STR) \
+    }
+
 /*
  * Permitted verbosity levels; to be used when defining verbose messages. The levels define a range
  * of severity categories, with WT_VERBOSE_ERROR being the lowest, most critical level (used by

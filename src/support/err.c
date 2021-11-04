@@ -8,9 +8,6 @@
 
 #include "wt_internal.h"
 
-static const char *wt_verbose_category_strings[] = {
-  WT_GEN_VERBOSE_CATEGORIES(WT_GEN_VERBOSE_ENUM_STR)};
-
 /*
  * __handle_error_default --
  *     Default WT_EVENT_HANDLER->handle_error implementation: send to stderr.
@@ -204,6 +201,7 @@ __eventv_gen_json_str(WT_SESSION_IMPL *session, char *buffer, size_t *buffer_len
   va_list ap) WT_GCC_FUNC_ATTRIBUTE((cold))
 {
     struct timespec ts;
+    WT_DECL_CATEGORY_STRINGS(categories_str);
     WT_DECL_RET;
     size_t remain, remain_msg, unpacked_msg_len;
     u_char *unpacked_json_str;
@@ -236,7 +234,7 @@ __eventv_gen_json_str(WT_SESSION_IMPL *session, char *buffer, size_t *buffer_len
     if ((prefix = session->name) != NULL)
         WT_ERROR_APPEND(p, remain, "\"session_name\":\"%s\",", prefix);
 
-    WT_ERROR_APPEND(p, remain, "\"category\":\"%s\",", wt_verbose_category_strings[category]);
+    WT_ERROR_APPEND(p, remain, "\"category\":\"%s\",", categories_str[category]);
     WT_ERROR_APPEND(p, remain, "\"category_id\":%" PRIu32 ",", category);
     WT_VERBOSE_LEVEL_TO_TAG(level, verbosity_level_tag);
     WT_ERROR_APPEND(p, remain, "\"verbose_level\":\"%s\",", verbosity_level_tag);
@@ -282,6 +280,7 @@ __eventv_gen_flat_str(WT_SESSION_IMPL *session, char *buffer, size_t *buffer_len
   va_list ap) WT_GCC_FUNC_ATTRIBUTE((cold))
 {
     struct timespec ts;
+    WT_DECL_CATEGORY_STRINGS(categories_str);
     WT_DECL_RET;
     size_t len, remain;
     char *p, tid[128];
@@ -314,8 +313,7 @@ __eventv_gen_flat_str(WT_SESSION_IMPL *session, char *buffer, size_t *buffer_len
 
     /* Append the category and verbosity. */
     WT_VERBOSE_LEVEL_TO_TAG(level, verbosity_level_tag);
-    WT_ERROR_APPEND(
-      p, remain, "[%s][%s]", wt_verbose_category_strings[category], verbosity_level_tag);
+    WT_ERROR_APPEND(p, remain, "[%s][%s]", categories_str[category], verbosity_level_tag);
 
     WT_ERROR_APPEND_AP(p, remain, fmt, ap);
 
