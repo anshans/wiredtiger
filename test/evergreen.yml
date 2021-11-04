@@ -559,7 +559,7 @@ functions:
       script: |
         set -o errexit
         set -o verbose
-        ./t ${checkpoint_args} 2>&1
+        ./test_checkpoint ${checkpoint_args} 2>&1
 
   "checkpoint stress test":
     command: shell.exec
@@ -2154,11 +2154,8 @@ tasks:
       # Handle special build combination for running all the diagnostic tests.
       - func: "configure wiredtiger"
         vars:
-          configure_env_vars: CC=/opt/mongodbtoolchain/v3/bin/gcc CXX=/opt/mongodbtoolchain/v3/bin/g++ PATH=/opt/mongodbtoolchain/v3/bin:$PATH ADD_CFLAGS="-g -Werror"
-          posix_configure_flags: --enable-silent-rules --enable-strict --enable-diagnostic --disable-static
+          posix_configure_flags: -DENABLE_STRICT=1 -DHAVE_DIAGNOSTIC=1 -DENABLE_STATIC=0
       - func: "make wiredtiger"
-        vars:
-          make_command: make all
       - func: "make check all"
 
   # Use format.sh to run tests in parallel (x4) for just under two hours (the
@@ -2238,7 +2235,7 @@ tasks:
           script: |
             set -o errexit
             set -o verbose
-            ${python_binary|python3} syscall.py --verbose --preserve
+            ${test_env_vars|} ${python_binary|python3} syscall.py --verbose --preserve
 
   - name: checkpoint-filetypes-test
     commands:
@@ -2246,7 +2243,7 @@ tasks:
       - func: "compile wiredtiger"
         vars:
           # Don't use diagnostic - this test looks for timing problems that are more likely to occur without it
-          posix_configure_flags: --enable-strict
+          posix_configure_flags: -DENABLE_STRICT
       - func: "checkpoint test"
         vars:
           checkpoint_args: -t m -n 1000000 -k 5000000 -C cache_size=100MB
@@ -3495,9 +3492,6 @@ buildvariants:
     - name: ".pull_request !.windows_only !.pull_request_compilers"
     - name: linux-directio
       distros: ubuntu2004-build
-    - name: syscall-linux
-    - name: configure-combinations
-    - name: checkpoint-filetypes-test
     - name: unit-test-zstd
     - name: unit-test-long
       distros: ubuntu2004-large
@@ -3548,6 +3542,9 @@ buildvariants:
     - name: compile
     - name: make-check-test
     - name: unit-test
+    - name: configure-combinations
+    - name: syscall-linux
+    - name: checkpoint-filetypes-test
 
 - name: ubuntu2004-asan
   display_name: "! Ubuntu 20.04 ASAN"
