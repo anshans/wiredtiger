@@ -8,6 +8,9 @@
 
 #include "wt_internal.h"
 
+static const char *wt_verbose_category_strings[] = {
+  WT_GEN_VERBOSE_CATEGORIES(WT_GEN_VERBOSE_ENUM_STR)};
+
 /*
  * __handle_error_default --
  *     Default WT_EVENT_HANDLER->handle_error implementation: send to stderr.
@@ -168,10 +171,10 @@ __wt_event_handler_set(WT_SESSION_IMPL *session, WT_EVENT_HANDLER *handler)
 static size_t
 __eventv_unpack_json_str(u_char *dest, size_t dest_len, char *src) WT_GCC_FUNC_ATTRIBUTE((cold))
 {
-    size_t nchars;
-    char *p;
-    u_char *q;
     size_t n;
+    size_t nchars;
+    u_char *q;
+    char *p;
 
     nchars = 0;
     q = dest;
@@ -197,14 +200,15 @@ __eventv_unpack_json_str(u_char *dest, size_t dest_len, char *src) WT_GCC_FUNC_A
  */
 static int
 __eventv_gen_json_str(WT_SESSION_IMPL *session, char *buffer, size_t *buffer_len, int error,
-  const char *func, int line, const char *fmt, va_list ap) WT_GCC_FUNC_ATTRIBUTE((cold))
+  const char *func, int line, WT_VERBOSE_CATEGORY category, WT_VERBOSE_LEVEL level, const char *fmt,
+  va_list ap) WT_GCC_FUNC_ATTRIBUTE((cold))
 {
-    WT_DECL_RET;
     struct timespec ts;
-    char *p, *p_msg, tid[128], msg_str[2 * 1024];
-    const char *err, *prefix;
-    u_char *unpacked_json_str;
+    WT_DECL_RET;
     size_t remain, remain_msg, unpacked_msg_len;
+    u_char *unpacked_json_str;
+    char *p, *p_msg, tid[128], msg_str[2 * 1024];
+    const char *err, *prefix, *verbosity_level_tag;
 
     p = buffer;
     p_msg = msg_str;
@@ -213,9 +217,9 @@ __eventv_gen_json_str(WT_SESSION_IMPL *session, char *buffer, size_t *buffer_len
     remain_msg = sizeof(msg_str);
 
     /*
-     * We have several attributes for the event handler message: a timestamp and the
-     * process and thread ids, the database error prefix, the data-source's name, and the session's
-     * name. Write them as separates JSON attributes.
+     * We have several attributes for the event handler message: a timestamp and the process and
+     * thread ids, the database error prefix, the data-source's name, and the session's name. Write
+     * them as separates JSON attributes.
      */
     __wt_epoch(session, &ts);
     WT_ERR(__wt_thread_str(tid, sizeof(tid)));
@@ -232,11 +236,11 @@ __eventv_gen_json_str(WT_SESSION_IMPL *session, char *buffer, size_t *buffer_len
     if ((prefix = session->name) != NULL)
         WT_ERROR_APPEND(p, remain, "\"session_name\":\"%s\",", prefix);
 
-    // TODO
-    // WT_ERROR_APPEND(p, remain, "\"category\":\"%s\",", category);
-    // WT_ERROR_APPEND(p, remain, "\"category_id\":%d,", category_id);
-    // WT_ERROR_APPEND(p, remain, "\"verbose_level\":\"%s\",", verbose_level);
-    // WT_ERROR_APPEND(p, remain, "\"verbose_level_id\":%d,", verbose_level_id);
+    WT_ERROR_APPEND(p, remain, "\"category\":\"%s\",", wt_verbose_category_strings[category]);
+    WT_ERROR_APPEND(p, remain, "\"category_id\":%" PRIu32 ",", category);
+    WT_VERBOSE_LEVEL_TO_TAG(level, verbosity_level_tag);
+    WT_ERROR_APPEND(p, remain, "\"verbose_level\":\"%s\",", verbosity_level_tag);
+    WT_ERROR_APPEND(p, remain, "\"verbose_level_id\":%d,", level);
 
     if (error != 0) {
         err = __wt_strerror(session, error, NULL, 0);
@@ -274,13 +278,14 @@ err:
  */
 static int
 __eventv_gen_flat_str(WT_SESSION_IMPL *session, char *buffer, size_t *buffer_len, int error,
-  const char *func, int line, const char *fmt, va_list ap) WT_GCC_FUNC_ATTRIBUTE((cold))
+  const char *func, int line, WT_VERBOSE_CATEGORY category, WT_VERBOSE_LEVEL level, const char *fmt,
+  va_list ap) WT_GCC_FUNC_ATTRIBUTE((cold))
 {
-    WT_DECL_RET;
     struct timespec ts;
-    char *p, tid[128];
-    const char *err, *prefix;
+    WT_DECL_RET;
     size_t len, remain;
+    char *p, tid[128];
+    const char *err, *prefix, *verbosity_level_tag;
 
     p = buffer;
     remain = *buffer_len;
@@ -306,6 +311,11 @@ __eventv_gen_flat_str(WT_SESSION_IMPL *session, char *buffer, size_t *buffer_len
 
     if (func != NULL)
         WT_ERROR_APPEND(p, remain, "%s, %d: ", func, line);
+
+    /* Append the category and verbosity. */
+    WT_VERBOSE_LEVEL_TO_TAG(level, verbosity_level_tag);
+    WT_ERROR_APPEND(
+      p, remain, "[%s][%s]", wt_verbose_category_strings[category], verbosity_level_tag);
 
     WT_ERROR_APPEND_AP(p, remain, fmt, ap);
 
@@ -338,7 +348,8 @@ err:
  */
 static int
 __eventv(WT_SESSION_IMPL *session, bool msg_event, int error, const char *func, int line,
-  const char *fmt, va_list ap) WT_GCC_FUNC_ATTRIBUTE((cold))
+  WT_VERBOSE_CATEGORY category, WT_VERBOSE_LEVEL level, const char *fmt, va_list ap)
+  WT_GCC_FUNC_ATTRIBUTE((cold))
 {
     WT_DECL_RET;
     WT_EVENT_HANDLER *handler;
@@ -371,9 +382,11 @@ __eventv(WT_SESSION_IMPL *session, bool msg_event, int error, const char *func, 
 
     /* Format the message. */
     if (S2C(session)->event_handler_json)
-        WT_ERR(__eventv_gen_json_str(session, s, &remain, error, func, line, fmt, ap));
+        WT_ERR(
+          __eventv_gen_json_str(session, s, &remain, error, func, line, category, level, fmt, ap));
     else
-        WT_ERR(__eventv_gen_flat_str(session, s, &remain, error, func, line, fmt, ap));
+        WT_ERR(
+          __eventv_gen_flat_str(session, s, &remain, error, func, line, category, level, fmt, ap));
 
     /*
      * If a handler fails, return the error status: if we're in the process of handling an error,
@@ -428,9 +441,9 @@ err:
  *     Report an error.
  */
 void
-__wt_err_func(WT_SESSION_IMPL *session, int error, const char *func, int line, const char *fmt, ...)
-  WT_GCC_FUNC_ATTRIBUTE((cold)) WT_GCC_FUNC_ATTRIBUTE((format(printf, 5, 6)))
-    WT_GCC_FUNC_ATTRIBUTE((visibility("default")))
+__wt_err_func(WT_SESSION_IMPL *session, int error, const char *func, int line,
+  WT_VERBOSE_CATEGORY category, const char *fmt, ...) WT_GCC_FUNC_ATTRIBUTE((cold))
+  WT_GCC_FUNC_ATTRIBUTE((format(printf, 6, 7))) WT_GCC_FUNC_ATTRIBUTE((visibility("default")))
 {
     va_list ap;
 
@@ -439,7 +452,7 @@ __wt_err_func(WT_SESSION_IMPL *session, int error, const char *func, int line, c
      * return.
      */
     va_start(ap, fmt);
-    WT_IGNORE_RET(__eventv(session, false, error, func, line, fmt, ap));
+    WT_IGNORE_RET(__eventv(session, false, error, func, line, category, WT_VERBOSE_ERROR, fmt, ap));
     va_end(ap);
 }
 
@@ -448,9 +461,9 @@ __wt_err_func(WT_SESSION_IMPL *session, int error, const char *func, int line, c
  *     Report an error with no error code.
  */
 void
-__wt_errx_func(WT_SESSION_IMPL *session, const char *func, int line, const char *fmt, ...)
-  WT_GCC_FUNC_ATTRIBUTE((cold)) WT_GCC_FUNC_ATTRIBUTE((format(printf, 4, 5)))
-    WT_GCC_FUNC_ATTRIBUTE((visibility("default")))
+__wt_errx_func(WT_SESSION_IMPL *session, const char *func, int line, WT_VERBOSE_CATEGORY category,
+  const char *fmt, ...) WT_GCC_FUNC_ATTRIBUTE((cold)) WT_GCC_FUNC_ATTRIBUTE((format(printf, 5, 6)))
+  WT_GCC_FUNC_ATTRIBUTE((visibility("default")))
 {
     va_list ap;
 
@@ -459,7 +472,7 @@ __wt_errx_func(WT_SESSION_IMPL *session, const char *func, int line, const char 
      * return.
      */
     va_start(ap, fmt);
-    WT_IGNORE_RET(__eventv(session, false, 0, func, line, fmt, ap));
+    WT_IGNORE_RET(__eventv(session, false, 0, func, line, category, WT_VERBOSE_ERROR, fmt, ap));
     va_end(ap);
 }
 
@@ -468,9 +481,9 @@ __wt_errx_func(WT_SESSION_IMPL *session, const char *func, int line, const char 
  *     A standard error message when we panic.
  */
 int
-__wt_panic_func(WT_SESSION_IMPL *session, int error, const char *func, int line, const char *fmt,
-  ...) WT_GCC_FUNC_ATTRIBUTE((cold)) WT_GCC_FUNC_ATTRIBUTE((format(printf, 5, 6)))
-  WT_GCC_FUNC_ATTRIBUTE((visibility("default")))
+__wt_panic_func(WT_SESSION_IMPL *session, int error, const char *func, int line,
+  WT_VERBOSE_CATEGORY category, const char *fmt, ...) WT_GCC_FUNC_ATTRIBUTE((cold))
+  WT_GCC_FUNC_ATTRIBUTE((format(printf, 6, 7))) WT_GCC_FUNC_ATTRIBUTE((visibility("default")))
 {
     WT_CONNECTION_IMPL *conn;
     va_list ap;
@@ -482,7 +495,7 @@ __wt_panic_func(WT_SESSION_IMPL *session, int error, const char *func, int line,
      * return.
      */
     va_start(ap, fmt);
-    WT_IGNORE_RET(__eventv(session, false, error, func, line, fmt, ap));
+    WT_IGNORE_RET(__eventv(session, false, error, func, line, category, WT_VERBOSE_ERROR, fmt, ap));
     va_end(ap);
 
     /*
@@ -501,8 +514,8 @@ __wt_panic_func(WT_SESSION_IMPL *session, int error, const char *func, int line,
      * I'm not confident of underlying support for a NULL.
      */
     va_start(ap, fmt);
-    WT_IGNORE_RET(
-      __eventv(session, false, WT_PANIC, func, line, "the process must exit and restart", ap));
+    WT_IGNORE_RET(__eventv(session, false, WT_PANIC, func, line, category, WT_VERBOSE_ERROR,
+      "the process must exit and restart", ap));
     va_end(ap);
 
 #if defined(HAVE_DIAGNOSTIC)
@@ -564,7 +577,7 @@ __wt_ext_err_printf(WT_EXTENSION_API *wt_api, WT_SESSION *wt_session, const char
         session = ((WT_CONNECTION_IMPL *)wt_api->conn)->default_session;
 
     va_start(ap, fmt);
-    ret = __eventv(session, false, 0, NULL, 0, fmt, ap);
+    ret = __eventv(session, false, 0, NULL, 0, WT_VERB_EXTENSION, WT_VERBOSE_ERROR, fmt, ap);
     va_end(ap);
     return (ret);
 }
@@ -599,13 +612,13 @@ __wt_failpoint(WT_SESSION_IMPL *session, uint64_t conn_flag, double probability)
  *     Verbose message.
  */
 void
-__wt_verbose_worker(WT_SESSION_IMPL *session, const char *fmt, ...)
-  WT_GCC_FUNC_ATTRIBUTE((format(printf, 2, 3))) WT_GCC_FUNC_ATTRIBUTE((cold))
+__wt_verbose_worker(WT_SESSION_IMPL *session, WT_VERBOSE_CATEGORY category, WT_VERBOSE_LEVEL level,
+  const char *fmt, ...) WT_GCC_FUNC_ATTRIBUTE((format(printf, 4, 5))) WT_GCC_FUNC_ATTRIBUTE((cold))
 {
     va_list ap;
 
     va_start(ap, fmt);
-    WT_IGNORE_RET(__eventv(session, true, 0, NULL, 0, fmt, ap));
+    WT_IGNORE_RET(__eventv(session, true, 0, NULL, 0, category, level, fmt, ap));
     va_end(ap);
 }
 
