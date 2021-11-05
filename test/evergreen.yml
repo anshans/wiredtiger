@@ -379,7 +379,7 @@ functions:
   "format test":
     command: shell.exec
     params:
-      working_dir: "wiredtiger/build_posix/test/format"
+      working_dir: "wiredtiger/cmake_build/test/format"
       script: |
         set -o errexit
         set -o verbose
@@ -400,15 +400,15 @@ functions:
   "many dbs test":
     command: shell.exec
     params:
-      working_dir: "wiredtiger/build_posix/test/manydbs"
+      working_dir: "wiredtiger/cmake_build/test/manydbs"
       script: |
         set -o errexit
         set -o verbose
-        ${test_env_vars|} ./t ${many_db_args|} 2>&1
+        ${test_env_vars|} ./test_manydbs ${many_db_args|} 2>&1
   "thread test":
     command: shell.exec
     params:
-      working_dir: "wiredtiger/build_posix/test/thread"
+      working_dir: "wiredtiger/cmake_build/test/thread"
       script: |
         set -o errexit
         set -o verbose
@@ -416,7 +416,7 @@ functions:
   "random abort test":
     command: shell.exec
     params:
-      working_dir: "wiredtiger/build_posix/test/csuite"
+      working_dir: "wiredtiger/cmake_build/test/csuite/random_abort"
       script: |
         set -o errexit
         set -o verbose
@@ -424,7 +424,7 @@ functions:
   "tiered abort test":
     command: shell.exec
     params:
-      working_dir: "wiredtiger/build_posix/test/csuite"
+      working_dir: "wiredtiger/cmake_build/test/csuite/tiered_abort"
       script: |
         set -o errexit
         set -o verbose
@@ -440,11 +440,11 @@ functions:
   "truncated log test":
     command: shell.exec
     params:
-      working_dir: "wiredtiger/build_posix/"
+      working_dir: "wiredtiger/cmake_build/test/csuite/truncated_log"
       script: |
         set -o errexit
         set -o verbose
-        ${test_env_vars|} ./test/csuite/test_truncated_log ${truncated_log_args|} 2>&1
+        ${test_env_vars|} ./test_truncated_log ${truncated_log_args|} 2>&1
   "recovery stress test script":
     command: shell.exec
     params:
@@ -774,7 +774,7 @@ tasks:
       - func: "get project"
       - func: "compile wiredtiger"
         vars:
-          posix_configure_flags: --enable-strict --enable-diagnostic
+          posix_configure_flags: -DENABLE_STRICT=1 -DHAVE_DIAGNOSTIC=1
       - func: "upload artifact"
       - func: "cleanup"
 
@@ -2351,7 +2351,7 @@ tasks:
       - func: "get project"
       - func: "compile wiredtiger"
         vars:
-          posix_configure_flags: --enable-python --with-spinlock=gcc --enable-strict
+          posix_configure_flags: -DENABLE_PYTHON=1 -DSPINLOCK_TYPE=gcc -DENABLE_STRICT=1
       - func: "make check all"
       - func: "format test"
         vars:
@@ -2363,7 +2363,7 @@ tasks:
       - func: "get project"
       - func: "compile wiredtiger"
         vars:
-          posix_configure_flags: --enable-python --with-spinlock=pthread_adaptive --enable-strict
+          posix_configure_flags: -DENABLE_PYTHON=1 -DSPINLOCK_TYPE=pthread_adaptive -DENABLE_STRICT=1
       - func: "make check all"
       - func: "format test"
         vars:
@@ -2396,38 +2396,40 @@ tasks:
       - func: "get project"
       - func: "compile wiredtiger"
         vars:
-          posix_configure_flags: --enable-strict ac_cv_func_ftruncate=no
+          posix_configure_flags: -DENABLE_STRICT=1 -DHAVE_FTRUNCATE=0
       - command: shell.exec
         params:
-          working_dir: "wiredtiger/build_posix"
+          working_dir: "wiredtiger/cmake_build"
           script: |
             set -o errexit
             set -o verbose
             # ${test_env_vars|} $(pwd)/../test/csuite/random_abort/smoke.sh 2>&1
-            ${test_env_vars|} $(pwd)/../test/csuite/timestamp_abort/smoke.sh 2>&1
-            ${test_env_vars|} $(pwd)/test/csuite/test_truncated_log 2>&1
+            ${test_env_vars|} $(pwd)/test/csuite/timestamp_abort/smoke.sh -b $(pwd)/test/csuite/timestamp_abort/test_timestamp_abort 2>&1
+            ${test_env_vars|} $(pwd)/test/csuite/test_truncated_log $(pwd)/test/csuite/test_truncated_log/test_truncated_log 2>&1
 
   - name: long-test
     commands:
       - func: "get project"
       - func: "configure wiredtiger"
         vars:
-          configure_env_vars: CC=/opt/mongodbtoolchain/v3/bin/gcc CXX=/opt/mongodbtoolchain/v3/bin/g++ PATH=/opt/mongodbtoolchain/v3/bin:$PATH ADD_CFLAGS="-g -Werror"
-          posix_configure_flags: --enable-silent-rules --enable-strict --enable-diagnostic --disable-static
+          posix_configure_flags:
+            -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/mongodbtoolchain_v3_gcc.cmake
+            -DCMAKE_C_FLAGS="-g -Werror"
+            -DHAVE_DIAGNOSTIC=1
+            -DENABLE_STRICT=1
+            -DENABLE_STATIC=0
       - func: "make wiredtiger"
 
       # Run the long version of make check, that includes the full csuite tests
       - func: "make check all"
-        vars:
-          test_env_vars: ${test_env_vars} TESTUTIL_ENABLE_LONG_TESTS=1
       - command: shell.exec
         params:
-          working_dir: "wiredtiger/build_posix"
+          working_dir: "wiredtiger/cmake_build"
           script: |
             set -o errexit
             set -o verbose
 
-            WT3363_CHECKPOINT_OP_RACES=1 test/csuite/./test_wt3363_checkpoint_op_races 2>&1
+            TESTUTIL_ENABLE_TIMING_TESTS=1 ./test/csuite/wt3363_checkpoint_op_races/test_wt3363_checkpoint_op_races 2>&1
 
       # Many dbs test - Run with:
       # 1.  The defaults
@@ -3494,12 +3496,6 @@ buildvariants:
       distros: ubuntu2004-build
     - name: unit-test-long
       distros: ubuntu2004-large
-    - name: spinlock-gcc-test
-    - name: spinlock-pthread-adaptive-test
-    - name: compile-wtperf
-    - name: wtperf-test
-    - name: ftruncate-test
-    - name: long-test
     - name: static-wt-build-test
     - name: format-failure-configs-test
     - name: data-validation-stress-test-checkpoint
@@ -3545,6 +3541,11 @@ buildvariants:
     - name: checkpoint-filetypes-test
     - name: unit-test-zstd
     - name: unit-test-random-seed
+    - name: spinlock-gcc-test
+    - name: spinlock-pthread-adaptive-test
+    - name: compile-wtperf
+    - name: ftruncate-test
+    - name: long-test
 
 - name: ubuntu2004-asan
   display_name: "! Ubuntu 20.04 ASAN"
