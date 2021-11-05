@@ -3492,10 +3492,8 @@ buildvariants:
     - name: ".pull_request !.windows_only !.pull_request_compilers"
     - name: linux-directio
       distros: ubuntu2004-build
-    - name: unit-test-zstd
     - name: unit-test-long
       distros: ubuntu2004-large
-    - name: unit-test-random-seed
     - name: spinlock-gcc-test
     - name: spinlock-pthread-adaptive-test
     - name: compile-wtperf
@@ -3545,6 +3543,8 @@ buildvariants:
     - name: configure-combinations
     - name: syscall-linux
     - name: checkpoint-filetypes-test
+    - name: unit-test-zstd
+    - name: unit-test-random-seed
 
 - name: ubuntu2004-asan
   display_name: "! Ubuntu 20.04 ASAN"
