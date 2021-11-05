@@ -80,7 +80,7 @@ class test_verbose01(wttest.WiredTigerTestCase, suite_subprocess):
 
         # Test the contents of each verbose message, ensuring it satisfies the expected pattern.
         verb_pattern = re.compile('|'.join(patterns))
-        for line in verbose_messages:
+        for line in verbose_messages[:-1]:
             self.assertTrue(verb_pattern.search(line) != None, 'Unexpected verbose message: ' + line)
 
         # Close the connection resource and clean up the contents of the stdout file, flushing out the
