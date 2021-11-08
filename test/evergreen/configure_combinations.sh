@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CMAKE_BIN="${CMAKE:-cmake}"
+: ${CMAKE_BIN:=cmake}
 
 cd $(git rev-parse --show-toplevel)
 echo `pwd`
