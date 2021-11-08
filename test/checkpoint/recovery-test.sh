@@ -20,7 +20,7 @@ backup=$home.backup
 recovery=$home.recovery
 
 #./t -t r -W 3 -D -X -n 100000 -k 100000 -C cache_size=100MB -h $home > $home.out 2>&1 &
-./t ${config} -h ${home} > $home.out 2>&1 &
+./test_checkpoint ${config} -h ${home} > $home.out 2>&1 &
 pid=$!
 
 trap "kill -9 $pid" 0 1 2 3 13 15
@@ -37,7 +37,7 @@ while kill -STOP $pid ; do
 	cp $home/* $backup
 	kill -CONT $pid
 	cp $backup/* $recovery
-	./t -t r -D -v -h $recovery || exit 1
+	./test_checkpoint -t r -D -v -h $recovery || exit 1
 done
 
 exit 0

@@ -389,7 +389,7 @@ functions:
   "format test script":
     command: shell.exec
     params:
-      working_dir: "wiredtiger/test/format"
+      working_dir: "wiredtiger/cmake_build/test/format"
       script: |
         set -o errexit
         set -o verbose
@@ -2549,12 +2549,12 @@ tasks:
       - func: "fetch artifacts"
       - command: shell.exec
         params:
-          working_dir: "wiredtiger/build_posix/test/checkpoint"
+          working_dir: "wiredtiger/cmake_build/test/checkpoint"
           shell: bash
           script: |
             set -o errexit
             set -o verbose
-            ${test_env_vars|} ../../../tools/run_parallel.sh 'nice ../../../test/checkpoint/recovery-test.sh "${data_validation_stress_test_args}" WT_TEST.$t' 120
+            ${test_env_vars|} ../../../tools/run_parallel.sh 'nice ./recovery-test.sh "${data_validation_stress_test_args}" WT_TEST.$t' 120
 
   - name: data-validation-stress-test-checkpoint-fp-hs-insert-s1
     depends_on:
@@ -2563,12 +2563,12 @@ tasks:
       - func: "fetch artifacts"
       - command: shell.exec
         params:
-          working_dir: "wiredtiger/build_posix/test/checkpoint"
+          working_dir: "wiredtiger/cmake_build/test/checkpoint"
           shell: bash
           script: |
             set -o errexit
             set -o verbose
-            ${test_env_vars|} ../../../tools/run_parallel.sh 'nice ../../../test/checkpoint/recovery-test.sh "${data_validation_stress_test_args} -s 1" WT_TEST.$t' 120
+            ${test_env_vars|} ../../../tools/run_parallel.sh 'nice ./recovery-test.sh "${data_validation_stress_test_args} -s 1" WT_TEST.$t' 120
 
   - name: data-validation-stress-test-checkpoint-fp-hs-insert-s2
     depends_on:
@@ -2577,12 +2577,12 @@ tasks:
       - func: "fetch artifacts"
       - command: shell.exec
         params:
-          working_dir: "wiredtiger/build_posix/test/checkpoint"
+          working_dir: "wiredtiger/cmake_build/test/checkpoint"
           shell: bash
           script: |
             set -o errexit
             set -o verbose
-            ${test_env_vars|} ../../../tools/run_parallel.sh 'nice ../../../test/checkpoint/recovery-test.sh "${data_validation_stress_test_args} -s 2" WT_TEST.$t' 120
+            ${test_env_vars|} ../../../tools/run_parallel.sh 'nice ./recovery-test.sh "${data_validation_stress_test_args} -s 2" WT_TEST.$t' 120
 
   - name: data-validation-stress-test-checkpoint-fp-hs-insert-s3
     depends_on:
@@ -2591,12 +2591,12 @@ tasks:
       - func: "fetch artifacts"
       - command: shell.exec
         params:
-          working_dir: "wiredtiger/build_posix/test/checkpoint"
+          working_dir: "wiredtiger/cmake_build/test/checkpoint"
           shell: bash
           script: |
             set -o errexit
             set -o verbose
-            ${test_env_vars|} ../../../tools/run_parallel.sh 'nice ../../../test/checkpoint/recovery-test.sh "${data_validation_stress_test_args} -s 3" WT_TEST.$t' 120
+            ${test_env_vars|} ../../../tools/run_parallel.sh 'nice ./recovery-test.sh "${data_validation_stress_test_args} -s 3" WT_TEST.$t' 120
 
   - name: data-validation-stress-test-checkpoint-fp-hs-insert-s4
     depends_on:
@@ -2605,12 +2605,12 @@ tasks:
       - func: "fetch artifacts"
       - command: shell.exec
         params:
-          working_dir: "wiredtiger/build_posix/test/checkpoint"
+          working_dir: "wiredtiger/cmake_build/test/checkpoint"
           shell: bash
           script: |
             set -o errexit
             set -o verbose
-            ${test_env_vars|} ../../../tools/run_parallel.sh 'nice ../../../test/checkpoint/recovery-test.sh "${data_validation_stress_test_args} -s 4" WT_TEST.$t' 120
+            ${test_env_vars|} ../../../tools/run_parallel.sh 'nice ./recovery-test.sh "${data_validation_stress_test_args} -s 4" WT_TEST.$t' 120
 
   - name: data-validation-stress-test-checkpoint-fp-hs-insert-s5
     depends_on:
@@ -2619,12 +2619,12 @@ tasks:
       - func: "fetch artifacts"
       - command: shell.exec
         params:
-          working_dir: "wiredtiger/build_posix/test/checkpoint"
+          working_dir: "wiredtiger/cmake_build/test/checkpoint"
           shell: bash
           script: |
             set -o errexit
             set -o verbose
-            ${test_env_vars|} ../../../tools/run_parallel.sh 'nice ../../../test/checkpoint/recovery-test.sh "${data_validation_stress_test_args} -s 5" WT_TEST.$t' 120
+            ${test_env_vars|} ../../../tools/run_parallel.sh 'nice ./recovery-test.sh "${data_validation_stress_test_args} -s 5" WT_TEST.$t' 120
 
   - name: data-validation-stress-test-checkpoint-fp-hs-insert-s6
     depends_on:
@@ -2633,12 +2633,12 @@ tasks:
       - func: "fetch artifacts"
       - command: shell.exec
         params:
-          working_dir: "wiredtiger/build_posix/test/checkpoint"
+          working_dir: "wiredtiger/cmake_build/test/checkpoint"
           shell: bash
           script: |
             set -o errexit
             set -o verbose
-            ${test_env_vars|} ../../../tools/run_parallel.sh 'nice ../../../test/checkpoint/recovery-test.sh "${data_validation_stress_test_args} -s 6" WT_TEST.$t' 120
+            ${test_env_vars|} ../../../tools/run_parallel.sh 'nice ./recovery-test.sh "${data_validation_stress_test_args} -s 6" WT_TEST.$t' 120
 
   - name: data-validation-stress-test-checkpoint-fp-hs-insert-s7
     depends_on:
@@ -2647,12 +2647,12 @@ tasks:
       - func: "fetch artifacts"
       - command: shell.exec
         params:
-          working_dir: "wiredtiger/build_posix/test/checkpoint"
+          working_dir: "wiredtiger/cmake_build/test/checkpoint"
           shell: bash
           script: |
             set -o errexit
             set -o verbose
-            ${test_env_vars|} ../../../tools/run_parallel.sh 'nice ../../../test/checkpoint/recovery-test.sh "${data_validation_stress_test_args} -s 7" WT_TEST.$t' 120
+            ${test_env_vars|} ../../../tools/run_parallel.sh 'nice ./recovery-test.sh "${data_validation_stress_test_args} -s 7" WT_TEST.$t' 120
 
   - name: format-failure-configs-test
     depends_on:
@@ -2673,7 +2673,7 @@ tasks:
       - func: "get project"
       - func: "compile wiredtiger"
         vars:
-          posix_configure_flags: --enable-strict --disable-shared --with-builtins=snappy,zlib,zstd
+          posix_configure_flags: -DENABLE_STRICT=1 -DENABLE_STATIC=1 -DENABLE_SHARED=0 -DHAVE_BUILTIN_EXTENSION_LZ4=1 -DHAVE_BUILTIN_EXTENSION_SNAPPY=1 -DHAVE_BUILTIN_EXTENSION_ZLIB=1
       - command: shell.exec
         params:
           working_dir: "wiredtiger/build_posix"
@@ -2684,8 +2684,6 @@ tasks:
 
             # Delete wt util
             rm -f wt
-            # Build static wt util
-            ${make_command|make} CC='eval "g++ -static"' ${smp_command|}
             # -V option displays Wiredtiger library version
             ./wt -V
 
@@ -2694,7 +2692,8 @@ tasks:
               exit 1
             fi
 
-            ldd wt || wt_static_build=1
+            # Test if libwiredtiger is dynamically linked.
+            (ldd wt | grep "libwiredtiger.so") || wt_static_build=1
 
             if [ $wt_static_build -ne 1 ]; then
               echo "Error, WT util is not statically linked"
@@ -3489,23 +3488,9 @@ buildvariants:
       --prefix=$(pwd)/LOCAL_INSTALL
     python_binary: '/opt/mongodbtoolchain/v3/bin/python3'
     make_command: PATH=/opt/mongodbtoolchain/v3/bin:$PATH make
-    data_validation_stress_test_args: -t r -m -W 3 -D -p -x -n 100000 -k 100000 -C cache_size=100MB
   tasks:
     - name: ".pull_request !.windows_only !.pull_request_compilers"
-    - name: linux-directio
-      distros: ubuntu2004-build
-    - name: unit-test-long
-      distros: ubuntu2004-large
-    - name: static-wt-build-test
-    - name: format-failure-configs-test
-    - name: data-validation-stress-test-checkpoint
-    - name: data-validation-stress-test-checkpoint-fp-hs-insert-s1
-    - name: data-validation-stress-test-checkpoint-fp-hs-insert-s2
-    - name: data-validation-stress-test-checkpoint-fp-hs-insert-s3
-    - name: data-validation-stress-test-checkpoint-fp-hs-insert-s4
-    - name: data-validation-stress-test-checkpoint-fp-hs-insert-s5
-    - name: data-validation-stress-test-checkpoint-fp-hs-insert-s6
-    - name: data-validation-stress-test-checkpoint-fp-hs-insert-s7
+
 
 - name: ubuntu2004-cmake
   display_name: "* Ubuntu 20.04 CMake"
@@ -3532,6 +3517,7 @@ buildvariants:
     cmake_generator: Ninja
     make_command: ninja
     is_cmake_build: true
+    data_validation_stress_test_args: -t r -m -W 3 -D -p -x -n 100000 -k 100000 -C cache_size=100MB
   tasks:
     - name: compile
     - name: make-check-test
@@ -3546,6 +3532,20 @@ buildvariants:
     - name: compile-wtperf
     - name: ftruncate-test
     - name: long-test
+    - name: unit-test-long
+      distros: ubuntu2004-large
+    - name: static-wt-build-test
+    - name: linux-directio
+      distros: ubuntu2004-build
+    - name: format-failure-configs-test
+    - name: data-validation-stress-test-checkpoint
+    - name: data-validation-stress-test-checkpoint-fp-hs-insert-s1
+    - name: data-validation-stress-test-checkpoint-fp-hs-insert-s2
+    - name: data-validation-stress-test-checkpoint-fp-hs-insert-s3
+    - name: data-validation-stress-test-checkpoint-fp-hs-insert-s4
+    - name: data-validation-stress-test-checkpoint-fp-hs-insert-s5
+    - name: data-validation-stress-test-checkpoint-fp-hs-insert-s6
+    - name: data-validation-stress-test-checkpoint-fp-hs-insert-s7
 
 - name: ubuntu2004-asan
   display_name: "! Ubuntu 20.04 ASAN"
