@@ -142,6 +142,10 @@ functions:
           else
             # Compiling with CMake.
             . test/evergreen/find_cmake.sh
+            # If we've fetched the wiredtiger artifact from a previous compilation/build, it's best to remove
+            # the previous build directory so we can create a fresh configuration. We can't use the the previous
+            # CMake Cache configuration as its likely it will have absolute paths related to the previous build machine.
+            if [ -d cmake_build ]; then rm -r cmake_build; fi
             mkdir -p cmake_build
             cd cmake_build
             $CMAKE \
@@ -555,7 +559,7 @@ functions:
   "checkpoint test":
     command: shell.exec
     params:
-      working_dir: "wiredtiger/build_posix/test/checkpoint"
+      working_dir: "wiredtiger/cmake_build/test/checkpoint"
       script: |
         set -o errexit
         set -o verbose
@@ -745,7 +749,7 @@ tasks:
       - func: "get project"
       - func: "compile wiredtiger"
         vars:
-          posix_configure_flags: --enable-silent-rules --enable-strict --disable-shared
+          posix_configure_flags: -DCMAKE_BUILD_TYPE=Release -DENABLE_STRICT=1 -DENABLE_SHARED=0 -DENABLE_STATIC=1
       - func: "upload artifact"
       - func: "cleanup"
 
@@ -2146,10 +2150,12 @@ tasks:
       - func: "get project"
       - command: shell.exec
         params:
-          working_dir: "wiredtiger/test/evergreen"
+          working_dir: "wiredtiger"
           script: |
             set -o errexit
             set -o verbose
+            . test/evergreen/find_cmake.sh
+            cd test/evergreen
             ./configure_combinations.sh ${smp_command|} 2>&1
       # Handle special build combination for running all the diagnostic tests.
       - func: "configure wiredtiger"
@@ -2243,7 +2249,7 @@ tasks:
       - func: "compile wiredtiger"
         vars:
           # Don't use diagnostic - this test looks for timing problems that are more likely to occur without it
-          posix_configure_flags: -DENABLE_STRICT
+          posix_configure_flags: -DENABLE_STRICT=1
       - func: "checkpoint test"
         vars:
           checkpoint_args: -t m -n 1000000 -k 5000000 -C cache_size=100MB
@@ -2405,7 +2411,7 @@ tasks:
             set -o verbose
             # ${test_env_vars|} $(pwd)/../test/csuite/random_abort/smoke.sh 2>&1
             ${test_env_vars|} $(pwd)/test/csuite/timestamp_abort/smoke.sh -b $(pwd)/test/csuite/timestamp_abort/test_timestamp_abort 2>&1
-            ${test_env_vars|} $(pwd)/test/csuite/test_truncated_log $(pwd)/test/csuite/test_truncated_log/test_truncated_log 2>&1
+            ${test_env_vars|} $(pwd)/test/csuite/truncated_log/test_truncated_log 2>&1
 
   - name: long-test
     commands:
@@ -2414,7 +2420,7 @@ tasks:
         vars:
           posix_configure_flags:
             -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/mongodbtoolchain_v3_gcc.cmake
-            -DCMAKE_C_FLAGS="-g -Werror"
+            -DCMAKE_C_FLAGS='-g -Werror'
             -DHAVE_DIAGNOSTIC=1
             -DENABLE_STRICT=1
             -DENABLE_STATIC=0
@@ -2676,14 +2682,12 @@ tasks:
           posix_configure_flags: -DENABLE_STRICT=1 -DENABLE_STATIC=1 -DENABLE_SHARED=0 -DHAVE_BUILTIN_EXTENSION_LZ4=1 -DHAVE_BUILTIN_EXTENSION_SNAPPY=1 -DHAVE_BUILTIN_EXTENSION_ZLIB=1
       - command: shell.exec
         params:
-          working_dir: "wiredtiger/build_posix"
+          working_dir: "wiredtiger/cmake_build"
           shell: bash
           script: |
             set -o errexit
             set -o verbose
 
-            # Delete wt util
-            rm -f wt
             # -V option displays Wiredtiger library version
             ./wt -V
 
